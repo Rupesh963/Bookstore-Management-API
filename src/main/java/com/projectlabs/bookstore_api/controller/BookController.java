@@ -1,9 +1,15 @@
 package com.projectlabs.bookstore_api.controller;
 
+import com.projectlabs.bookstore_api.dto.BookRequest;
 import com.projectlabs.bookstore_api.entity.Author;
 import com.projectlabs.bookstore_api.entity.Book;
+import com.projectlabs.bookstore_api.exception.ResourceNotFoundException;
 import com.projectlabs.bookstore_api.repository.AuthorRepository;
 import com.projectlabs.bookstore_api.repository.BookRepository;
+import com.projectlabs.bookstore_api.repository.BookSpecifications;
+import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,39 +28,54 @@ public class BookController {
     }
 
     @GetMapping
-    public List<Book> getAllBooks() {
-        return bookRepository.findAll();
+    public Page<Book> getAllBooks(
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) Long authorId,
+            Pageable pageable) {
+        return bookRepository.findAll(BookSpecifications.filterBy(title, authorId), pageable);
     }
 
     @GetMapping("/{id}")
     public Book getBook(@PathVariable Long id) {
-        return bookRepository.findById(id).orElse(null);
+        return bookRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found with id: " + id));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Book createBook(@RequestBody Book book, @RequestParam Long authorId) {
-        Author author = authorRepository.findById(authorId).orElse(null);
-        if (author == null) {
-            throw new RuntimeException("Author not found with id: " + authorId);
-        }
+    public Book createBook(@Valid @RequestBody BookRequest request) {
+        Author author = authorRepository.findById(request.getAuthorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Author not found with id: " + request.getAuthorId()));
+
+        Book book = new Book();
+        book.setTitle(request.getTitle());
+        book.setPrice(request.getPrice());
+        book.setPublicationYear(request.getPublicationYear());
         book.setAuthor(author);
         return bookRepository.save(book);
     }
 
     @PutMapping("/{id}")
-    public Book updateBook(@PathVariable Long id, @RequestBody Book updatedBook) {
-        Book book = bookRepository.findById(id).orElse(null);
-        if (book == null) return null;
-        book.setTitle(updatedBook.getTitle());
-        book.setPrice(updatedBook.getPrice());
-        book.setPublicationYear(updatedBook.getPublicationYear());
+    public Book updateBook(@PathVariable Long id, @Valid @RequestBody BookRequest request) {
+        Book book = bookRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found with id: " + id));
+
+        Author author = authorRepository.findById(request.getAuthorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Author not found with id: " + request.getAuthorId()));
+
+        book.setTitle(request.getTitle());
+        book.setPrice(request.getPrice());
+        book.setPublicationYear(request.getPublicationYear());
+        book.setAuthor(author);
         return bookRepository.save(book);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteBook(@PathVariable Long id) {
+        if (!bookRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Book not found with id: " + id);
+        }
         bookRepository.deleteById(id);
     }
 }

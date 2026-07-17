@@ -20,12 +20,12 @@ public class Book {
 
     @NotBlank(message = "Title is required")
     @Column(nullable = false)
-    private String Title;
+    private String title;
 
     @Positive(message = "Price must be positive")
-    private Double Price;
+    private Double price;
 
-    private Integer PublicationYear;
+    private Integer publicationYear;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "author_id", nullable = false)
